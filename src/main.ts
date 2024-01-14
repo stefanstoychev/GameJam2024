@@ -1,4 +1,4 @@
-import { AppOne as App } from './AppOne';
+import { MyGameApp as App } from './MyGameApp';
 
 console.log(`main.ts starting ${App.name}`);
 window.addEventListener('DOMContentLoaded', () => {
