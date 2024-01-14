@@ -18,9 +18,6 @@
     "noUnusedParameters": false,
     "noImplicitReturns": true,
     "types": [
-      "babylonjs",
-      "babylonjs-loaders",
-      ""
   ],
   },
   "include": [
