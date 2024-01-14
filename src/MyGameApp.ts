@@ -74,15 +74,17 @@ export class MyGameApp {
 
         ground.material = groundMaterial;
 
+        //Player
         var player = new MyPlayer("fox");
 
         player.load(scene, new BABYLON.Vector3(0, 0, 0));
 
+        //Path
         var pathTile = new MyPathTile("pathTile");
 
         var path = new PathTiles(this.layout, pathTile);
 
-        pathTile.load(scene, new BABYLON.Vector3(0, 0, 0), () => {
+        pathTile.load(scene, new BABYLON.Vector3(300.0, 300.0, 300.0), () => {
             path.load(scene);
         });
 
@@ -90,7 +92,7 @@ export class MyGameApp {
 
         var obstaclePresets = this.obstaclePresets;
 
-        //load obstacles
+        //Obstacles
 
         var obstacleBlue = new MyObstacleBlue("blue");
         obstaclePresets.push(obstacleBlue);
@@ -107,7 +109,7 @@ export class MyGameApp {
         scene.onPointerObservable.add((pointerInfo) => {
 
             switch (pointerInfo.type) {
-                case BABYLON.PointerEventTypes.POINTERDOWN:
+                case BABYLON.PointerEventTypes.POINTERDOUBLETAP:
                     var pickinfo = scene.pick(scene.pointerX, scene.pointerY, function (mesh) { return mesh == ground; });
 
                     if (!pickinfo.hit)
@@ -123,6 +125,93 @@ export class MyGameApp {
                     if (pickedPoint == null)
                         break;
 
+                    var hexCoord = this.layout.pixelToHex(new Point(pickedPoint.x, pickedPoint.z));
+
+                    hexCoord = hexCoord.round();
+
+                    var validEnd = true;
+
+                    for (let obstacle of this.obstacles) {
+
+                        if (obstacle.hexCoord?.equals(hexCoord))
+                            validEnd = false;
+
+                    }
+
+                    if (!validEnd)
+                        break;
+
+                    const astarHex = new AStarHex(this.obstacles.map((x) => x.hexCoord!));
+
+                    pathHex = astarHex.findPath(player.hexCoord!, hexCoord);
+
+                    path.showPath(pathHex!.map((x) => x.hex), player.moves);
+
+                    pathHex = pathHex?.splice(0,player.maxMoves)!;
+
+                    var endHex = pathHex.at(-1)?.hex!;
+
+                    // PATH DEFINITION
+
+                    const nbPoints = 5; // the number of points between each Vector3 control points
+                    const points = pathHex?.map((x) => {
+                        var point = this.layout.hexToPixel(x.hex);
+
+                        return new BABYLON.Vector3(point.x, 0, point.y);
+                    });
+
+                    // an array of Vector3 the curve must pass through : the control points
+                    const closed = false;                     // closes the curve when true
+                    const curve = BABYLON.Curve3.CreateCatmullRomSpline(points!, nbPoints, closed);
+
+
+                    // Transform the curves into a proper Path3D object and get its orientation information
+                    var path3d = new BABYLON.Path3D(curve.getPoints());
+                    var tangents = path3d.getTangents();
+                    var normals = path3d.getNormals();
+                    var binormals = path3d.getBinormals();
+                    var curvePath = path3d.getCurve();
+
+                    // Define the position and orientation animations that will be populated
+                    // according to the Path3D properties 
+                    const frameRate = 90;
+                    const posAnim = new BABYLON.Animation("cameraPos", "position", frameRate, BABYLON.Animation.ANIMATIONTYPE_VECTOR3);
+                    const posKeys = [];
+                    const rotAnim = new BABYLON.Animation("cameraRot", "rotationQuaternion", frameRate, BABYLON.Animation.ANIMATIONTYPE_QUATERNION);
+                    const rotKeys = [];
+
+                    for (let i = 0; i < curvePath.length; i++) {
+                        const position = curvePath[i];
+                        const tangent = tangents[i];
+                        const binormal = binormals[i];
+
+                        const rotation = BABYLON.Quaternion.FromLookDirectionRH(tangent, binormal);
+
+                        posKeys.push({ frame: i * frameRate, value: position });
+                        rotKeys.push({ frame: i * frameRate, value: rotation });
+
+                    }
+
+                    posAnim.setKeys(posKeys);
+                    rotAnim.setKeys(rotKeys);
+
+                    player.rootMesh?.animations.pop();
+                    player.rootMesh?.animations.pop();
+
+                    player.rootMesh?.animations.push(posAnim);
+                    player.rootMesh?.animations.push(rotAnim);
+
+
+                    player.walk(this.scene);
+
+                    scene.beginAnimation(player.rootMesh, 0, frameRate * (curvePath.length - 1) * nbPoints, false, nbPoints,
+                        () => {
+                            player.moveToHex(endHex, this.layout);
+                            player.survey(this.scene);
+                            return;
+                        });
+
+                    break;
 
                 case BABYLON.PointerEventTypes.POINTERMOVE:
 
@@ -162,7 +251,7 @@ export class MyGameApp {
                     if (brush)
                         brush.moveTo(point.x, 0.2, point.y);
 
-                    let validEnd = true;
+                    var validEnd = true;
 
                     for (let obstacle of this.obstacles) {
 
@@ -174,11 +263,11 @@ export class MyGameApp {
                     if (!validEnd)
                         break;
 
-                    const astarHex = new AStarHex(this.obstacles.map((x) => x.hexCoord!));
+                    var myastarHex = new AStarHex(this.obstacles.map((x) => x.hexCoord!));
 
-                    pathHex = astarHex.findPath(player.hexCoord!, hexCoord);
+                    pathHex = myastarHex.findPath(player.hexCoord!, hexCoord);
 
-                    path.showPath(pathHex!.map((x) => x.hex), 4);
+                    path.showPath(pathHex!.map((x) => x.hex), player.moves);
 
                     break;
             }

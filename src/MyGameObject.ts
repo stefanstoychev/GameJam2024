@@ -1,6 +1,6 @@
 import * as BABYLON from '@babylonjs/core/Legacy/legacy';
 
-import { Hex, Point } from "./lib";
+import { Hex, Layout, Point } from "./lib";
 
 export class MyGameObject {
     
@@ -14,6 +14,16 @@ export class MyGameObject {
 
         if(this.rootMesh)
             this.rootMesh.position = new BABYLON.Vector3(x,y,z);
+    }
+
+    public moveToHex(hex:Hex, layout: Layout){
+        this.hexCoord = hex;
+
+        var point = layout.hexToPixel(hex);
+
+        if(this.rootMesh){     
+            this.rootMesh.position = new BABYLON.Vector3(point.x,this.rootMesh.position.y,point.y);
+        }
     }
 
     public toPointXZ() : Point{
