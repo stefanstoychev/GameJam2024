@@ -488,7 +488,7 @@ class Tests
 
 
 // Tests
-function complain(name) { console.log("FAIL", name); }
+function complain(name: String) { console.log("FAIL", name); }
 Tests.testAll();
 
 
